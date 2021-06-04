@@ -19,7 +19,12 @@ export class JolocomWebServiceClient {
 
   async sendRPC(rpcName: string, request?: any, pathPrefix='/rpc'): Promise<any> {
     return new Promise((resolve, reject) => {
-      console.log('sending RPC call', { rpcName, request })
+      console.log(
+        'sending RPC call',
+        { rpcName, request },
+        'over',
+        this.rpcWS ? 'WebSocket' : 'http(s)'
+      )
       const msgID = this.msgN++
       const msg = {
         id: msgID,
@@ -112,15 +117,15 @@ export class JolocomWebServiceClient {
       }, this.wsReconnectTimeout)
     }
 
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       ws.onerror = (evt) => {
         console.error('error establishing WS conn', evt)
         this.disconnectWs()
         reject()
       }
       ws.onopen = (evt) => {
-        console.log('websocket connection established to', rpcWsUrl)
-        if (this.rpcWS !== ws) return ws.close()
+        //if (this.rpcWS !== ws) return ws.close()
+        console.log('websocket connection established with', rpcWsUrl)
 
         ws.onerror = (evt) => {
           console.error('websocket error', evt)
@@ -129,6 +134,7 @@ export class JolocomWebServiceClient {
         resolve()
       }
     }).then(() => {
+      if (this.rpcWS) this.rpcWS.close()
       this.rpcWS = ws
     })
   }

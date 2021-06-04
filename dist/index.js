@@ -23,7 +23,7 @@ class JolocomWebServiceClient {
     sendRPC(rpcName, request, pathPrefix = '/rpc') {
         return __awaiter(this, void 0, void 0, function* () {
             return new Promise((resolve, reject) => {
-                console.log('sending RPC call', { rpcName, request });
+                console.log('sending RPC call', { rpcName, request }, 'over', this.rpcWS ? 'WebSocket' : 'http(s)');
                 const msgID = this.msgN++;
                 const msg = {
                     id: msgID,
@@ -120,9 +120,8 @@ class JolocomWebServiceClient {
                     reject();
                 };
                 ws.onopen = (evt) => {
-                    console.log('websocket connection established to', rpcWsUrl);
-                    if (this.rpcWS !== ws)
-                        return ws.close();
+                    //if (this.rpcWS !== ws) return ws.close()
+                    console.log('websocket connection established with', rpcWsUrl);
                     ws.onerror = (evt) => {
                         console.error('websocket error', evt);
                         if (ws.readyState !== WebSocket.OPEN)
@@ -131,6 +130,8 @@ class JolocomWebServiceClient {
                     resolve();
                 };
             }).then(() => {
+                if (this.rpcWS)
+                    this.rpcWS.close();
                 this.rpcWS = ws;
             });
         });
