@@ -1,6 +1,6 @@
 {
   "name": "@jolocom/web-service-client",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Browser client for services based on @jolocom/web-service-base",
   "main": "dist/index.js",
   "repository": "https://github.com/jolocom/web-service-client",
