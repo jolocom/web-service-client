@@ -62,6 +62,7 @@ export class JolocomWebServiceClient {
     this.rpcWS && this.rpcWS.close()
     delete this.rpcWS
     delete this.rpcWsUrl
+    console.log('WebSocket Disconnected')
   }
 
   async connectWs(pathPrefix='/rpc') {
@@ -90,11 +91,27 @@ export class JolocomWebServiceClient {
 
     ws.onmessage = (evt) => {
       console.log('received websocket data', evt.data)
-      let msg
+      let msg: any
       try {
         msg = JSON.parse(evt.data)
         this.messages[msg.id].resolve(msg.response)
         this._finalizeMessage(msg.id)
+
+        if(msg.response && msg.response.id) {
+          if (this.rpcWS)
+              new Promise((resolve, reject) => {
+                  const msgID = msg.response.id
+                  const newMsg = {
+                      id: msgID
+                  };
+                  if (this.rpcWS) {
+                      this.messages[msgID] = {
+                        ...newMsg,
+                        resolve
+                      }
+                  }
+              })
+        }
       } catch (err) {
         console.error('error while processing websocket data', err)
       }

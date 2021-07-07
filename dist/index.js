@@ -9,6 +9,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.JolocomWebServiceClient = void 0;
 class JolocomWebServiceClient {
     constructor(serviceHostport = 'localhost:9000', base = '/', enableTls = false) {
         this.wsReconnectTimeout = 1500;
@@ -57,6 +58,7 @@ class JolocomWebServiceClient {
         this.rpcWS && this.rpcWS.close();
         delete this.rpcWS;
         delete this.rpcWsUrl;
+        console.log('WebSocket Disconnected');
     }
     connectWs(pathPrefix = '/rpc') {
         return __awaiter(this, void 0, void 0, function* () {
@@ -90,6 +92,18 @@ class JolocomWebServiceClient {
                     msg = JSON.parse(evt.data);
                     this.messages[msg.id].resolve(msg.response);
                     this._finalizeMessage(msg.id);
+                    if (msg.response && msg.response.id) {
+                        if (this.rpcWS)
+                            new Promise((resolve, reject) => {
+                                const msgID = msg.response.id;
+                                const newMsg = {
+                                    id: msgID
+                                };
+                                if (this.rpcWS) {
+                                    this.messages[msgID] = Object.assign(Object.assign({}, newMsg), { resolve });
+                                }
+                            });
+                    }
                 }
                 catch (err) {
                     console.error('error while processing websocket data', err);
