@@ -23,7 +23,8 @@ class JolocomWebServiceClient {
     }
     sendRPC(rpcName, request, pathPrefix = '/rpc') {
         return __awaiter(this, void 0, void 0, function* () {
-            return new Promise((resolve, reject) => {
+            const followUpMsg = {};
+            const processed = new Promise((resolve, reject) => {
                 console.log('sending RPC call', { rpcName, request }, 'over', this.rpcWS ? 'WebSocket' : 'http(s)');
                 const msgID = this.msgN++;
                 const msg = {
@@ -33,7 +34,9 @@ class JolocomWebServiceClient {
                 };
                 if (this.rpcWS) {
                     this.rpcWS.send(JSON.stringify(msg));
-                    this.messages[msgID] = Object.assign(Object.assign({}, msg), { resolve });
+                    this.messages[msgID] = Object.assign(Object.assign({}, msg), { followUps: [] });
+                    followUpMsg.resolve = resolve;
+                    this.messages[msgID].followUps.push(followUpMsg);
                 }
                 else {
                     resolve(fetch(`${this.serviceHttpUrl}${pathPrefix}`, {
@@ -52,6 +55,9 @@ class JolocomWebServiceClient {
                     }).then(resJson => resJson.response));
                 }
             });
+            if (this.rpcWS)
+                followUpMsg.processed = processed;
+            return processed;
         });
     }
     disconnectWs() {
@@ -86,26 +92,41 @@ class JolocomWebServiceClient {
         return __awaiter(this, void 0, void 0, function* () {
             const ws = new WebSocket(rpcWsUrl);
             ws.onmessage = (evt) => {
-                console.log('received websocket data', evt.data);
                 let msg;
                 try {
                     msg = JSON.parse(evt.data);
-                    this.messages[msg.id].resolve(msg.response);
-                    this._finalizeMessage(msg.id);
-                    if (msg.response && msg.response.id) {
-                        if (this.rpcWS)
-                            new Promise((resolve, reject) => {
-                                const msgID = msg.response.id;
-                                const newMsg = {
-                                    id: msgID
-                                };
-                                if (this.rpcWS) {
-                                    this.messages[msgID] = Object.assign(Object.assign({}, newMsg), { resolve });
-                                }
-                            });
+                    console.log('received websocket data', msg);
+                    let storedMsg;
+                    // If this is the first ever response in a thread then `this.messages[msg.id]` is there
+                    if (this.messages[msg.id]) {
+                        const msgIndex = msg.id;
+                        storedMsg = this.messages[msgIndex];
+                        if (msg.response && msg.response.id) {
+                            storedMsg.responseId = msg.response.id;
+                        }
                     }
+                    else {
+                        // This is a follow-up message in a thread. Get the related original stored message
+                        storedMsg = Object.keys(this.messages)
+                            .map((o) => this.messages[o])
+                            .find((m) => m.responseId == msg.id);
+                    }
+                    // Resolve the previous follow-up
+                    storedMsg.followUps[storedMsg.followUps.length - 1].resolve(Object.assign(Object.assign({}, msg.response), { originalMsg: storedMsg }));
+                    // Prepare to for the next follow-up
+                    const followUpMsg = {};
+                    followUpMsg.processed = new Promise((resolve, reject) => {
+                        followUpMsg.resolve = resolve;
+                    });
+                    storedMsg.followUps.push(followUpMsg);
+                    //TODO: if there is no 'response id' on the first response (msg.response?.id is not there). 
+                    //  Or, if message status success or failer (there is more messages to receive), 
+                    //  Then:
+                    //    Do not prepare to for the next follow-up message.
+                    //    Call: this._finalizeMessage(msgIndex)
                 }
                 catch (err) {
+                    console.log('received websocket data', evt.data);
                     console.error('error while processing websocket data', err);
                 }
             };
