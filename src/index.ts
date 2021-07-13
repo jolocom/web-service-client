@@ -54,13 +54,13 @@ export class JolocomWebServiceClient {
               'Content-Type': 'application/json;charset=utf-8'
             },
           }).then(resp => {
-              if (resp.status !== 200) {
-                return resp.json().then(({ message }) => {
-                  throw new Error(message)
-                })
-              }
-              return resp.json()
-            }).then(resJson => resJson.response)
+            if (resp.status !== 200) {
+              return resp.json().then(({ message }) => {
+                throw new Error(message)
+              })
+            }
+            return resp.json()
+          }).then(resJson => resJson.response)
         )
       }
     })
